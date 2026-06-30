@@ -1,0 +1,13 @@
+{
+  "name": "remakegame",
+  "version": "1.0.0",
+  "description": "Midnight Club inspired open city racing - web remake",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}

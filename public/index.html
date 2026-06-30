@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Midnight Clash - City Racing</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #000; overflow: hidden; font-family: 'Arial', sans-serif; }
+    #canvas { display: block; width: 100vw; height: 100vh; }
+
+    #hud {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 10;
+    }
+
+    #speedometer {
+      position: absolute; bottom: 20px; right: 20px;
+      background: rgba(0,0,0,0.6); border: 2px solid #ff6600;
+      border-radius: 12px; padding: 10px 16px; color: #fff; text-align: center;
+    }
+    #speed-value { font-size: 42px; font-weight: bold; color: #ff6600; line-height: 1; }
+    #speed-unit { font-size: 12px; color: #aaa; }
+    #gear-display { font-size: 18px; color: #ffcc00; margin-top: 4px; }
+
+    #nitro-bar-wrap {
+      position: absolute; bottom: 20px; left: 20px;
+      background: rgba(0,0,0,0.6); border: 2px solid #00aaff;
+      border-radius: 10px; padding: 8px 12px; color: #fff;
+    }
+    #nitro-label { font-size: 11px; color: #00aaff; letter-spacing: 2px; }
+    #nitro-bar-bg { width: 120px; height: 10px; background: #222; border-radius: 5px; margin-top: 4px; }
+    #nitro-bar { height: 100%; background: linear-gradient(90deg,#00aaff,#00ffee); border-radius: 5px; transition: width 0.1s; }
+
+    #minimap {
+      position: absolute; top: 16px; right: 16px;
+      width: 120px; height: 120px;
+      background: rgba(0,0,0,0.7); border: 2px solid #ff6600;
+      border-radius: 8px; overflow: hidden;
+    }
+    #minimap canvas { width: 100%; height: 100%; }
+
+    #race-info {
+      position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.7); border: 2px solid #ff6600;
+      border-radius: 10px; padding: 6px 20px; color: #fff; text-align: center;
+      min-width: 200px;
+    }
+    #race-info .title { font-size: 11px; color: #ff6600; letter-spacing: 3px; }
+    #race-info .pos { font-size: 22px; font-weight: bold; }
+
+    #lap-info {
+      position: absolute; top: 16px; left: 16px;
+      background: rgba(0,0,0,0.6); border: 2px solid #555;
+      border-radius: 10px; padding: 8px 14px; color: #fff;
+    }
+    #lap-info .lbl { font-size: 10px; color: #aaa; }
+    #lap-info .val { font-size: 16px; font-weight: bold; color: #ffcc00; }
+
+    #start-screen {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: linear-gradient(135deg,#0a0a0a,#1a0a00);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 100; color: #fff;
+    }
+    #start-screen h1 {
+      font-size: clamp(36px, 8vw, 80px); font-weight: 900;
+      color: #ff6600; text-shadow: 0 0 30px #ff6600, 0 0 60px #ff3300;
+      letter-spacing: 4px; text-align: center;
+    }
+    #start-screen h2 {
+      font-size: clamp(14px, 3vw, 22px); color: #aaa;
+      letter-spacing: 8px; margin: 8px 0 40px;
+    }
+    #start-btn {
+      background: #ff6600; color: #fff; border: none; border-radius: 8px;
+      font-size: 22px; font-weight: bold; padding: 16px 50px;
+      cursor: pointer; letter-spacing: 3px;
+      box-shadow: 0 0 30px #ff6600;
+      pointer-events: all;
+    }
+    #start-btn:hover { background: #ff8800; }
+    .controls-hint {
+      margin-top: 30px; color: #555; font-size: 13px; text-align: center; line-height: 2;
+    }
+    .controls-hint span { color: #888; }
+
+    /* Touch controls */
+    #touch-controls {
+      position: fixed; bottom: 0; left: 0; width: 100%; height: 220px;
+      z-index: 20; pointer-events: none; display: none;
+    }
+    .touch-btn {
+      position: absolute; border-radius: 50%;
+      background: rgba(255,102,0,0.25); border: 2px solid rgba(255,102,0,0.6);
+      color: #ff6600; font-size: 28px; font-weight: bold;
+      display: flex; align-items: center; justify-content: center;
+      pointer-events: all; user-select: none; -webkit-user-select: none;
+      touch-action: none;
+    }
+    .touch-btn:active, .touch-btn.pressed { background: rgba(255,102,0,0.55); }
+    #btn-gas   { width: 90px; height: 90px; right: 160px; bottom: 80px; }
+    #btn-brake { width: 75px; height: 75px; right: 70px;  bottom: 60px; }
+    #btn-left  { width: 80px; height: 80px; left: 60px;   bottom: 80px; }
+    #btn-right { width: 80px; height: 80px; left: 160px;  bottom: 80px; }
+    #btn-nitro {
+      width: 80px; height: 80px; right: 160px; bottom: 180px;
+      background: rgba(0,170,255,0.25); border-color: rgba(0,170,255,0.6);
+      color: #00aaff; font-size: 14px; letter-spacing: 1px; border-radius: 12px;
+    }
+    #btn-nitro.pressed { background: rgba(0,170,255,0.55); }
+
+    #countdown {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      font-size: 120px; font-weight: 900; color: #ff6600;
+      text-shadow: 0 0 40px #ff6600; z-index: 50; display: none;
+      animation: countpop 0.5s ease-out;
+    }
+    @keyframes countpop {
+      from { transform: translate(-50%,-50%) scale(2); opacity: 0; }
+      to   { transform: translate(-50%,-50%) scale(1); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+
+<div id="hud" style="display:none">
+  <div id="lap-info">
+    <div class="lbl">LAP TIME</div>
+    <div class="val" id="lap-time">0:00.0</div>
+  </div>
+
+  <div id="race-info">
+    <div class="title">POSITION</div>
+    <div class="pos" id="position">1 / 4</div>
+  </div>
+
+  <div id="minimap"><canvas id="map-canvas" width="120" height="120"></canvas></div>
+
+  <div id="speedometer">
+    <div id="speed-value">0</div>
+    <div id="speed-unit">MPH</div>
+    <div id="gear-display">N</div>
+  </div>
+
+  <div id="nitro-bar-wrap">
+    <div id="nitro-label">NITRO</div>
+    <div id="nitro-bar-bg"><div id="nitro-bar" style="width:100%"></div></div>
+  </div>
+</div>
+
+<div id="touch-controls">
+  <div class="touch-btn" id="btn-left">◄</div>
+  <div class="touch-btn" id="btn-right">►</div>
+  <div class="touch-btn" id="btn-gas">GAS</div>
+  <div class="touch-btn" id="btn-brake">BRK</div>
+  <div class="touch-btn" id="btn-nitro">NITRO</div>
+</div>
+
+<div id="countdown"></div>
+
+<div id="start-screen">
+  <h1>MIDNIGHT CLASH</h1>
+  <h2>CITY RACING</h2>
+  <button id="start-btn">RACE NOW</button>
+  <div class="controls-hint">
+    <span>Keyboard:</span> WASD / Arrow Keys &nbsp;|&nbsp; N = Nitro<br>
+    <span>Mobile:</span> On-screen touch buttons
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.158.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.158.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module" src="game.js"></script>
+</body>
+</html>
