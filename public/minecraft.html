@@ -1,380 +1,706 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Minecraft - Play Free Online</title>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Minecraft Online — Free Multiplayer</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#87ceeb; overflow:hidden; font-family:monospace; }
+#canvas { display:block; width:100vw; height:100vh; touch-action:none; }
 
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+/* Crosshair */
+#xhair { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+  width:22px; height:22px; pointer-events:none; z-index:10; }
+#xhair::before,#xhair::after { content:''; position:absolute; background:rgba(255,255,255,0.85); }
+#xhair::before { width:2px; height:100%; left:50%; transform:translateX(-50%); }
+#xhair::after  { height:2px; width:100%; top:50%;  transform:translateY(-50%); }
 
-    body {
-      background: #1a1a1a;
-      color: #fff;
-      font-family: 'Press Start 2P', monospace;
-      min-height: 100vh;
-      overflow-x: hidden;
-    }
+/* HUD */
+#hud { position:fixed; top:10px; left:10px; color:#fff; font-size:11px;
+  z-index:10; text-shadow:1px 1px 2px #000; line-height:1.9; display:none; }
 
-    /* Minecraft dirt/grass pixel background */
-    body::before {
-      content: '';
-      position: fixed;
-      inset: 0;
-      background:
-        repeating-linear-gradient(0deg, transparent, transparent 31px, rgba(0,0,0,0.08) 32px),
-        repeating-linear-gradient(90deg, transparent, transparent 31px, rgba(0,0,0,0.08) 32px),
-        linear-gradient(180deg, #1a3a1a 0%, #2d1a0e 60%, #1a1a1a 100%);
-      z-index: -1;
-    }
+/* Hotbar */
+#hotbar { position:fixed; bottom:16px; left:50%; transform:translateX(-50%);
+  display:flex; gap:3px; z-index:10; display:none; }
+.hs { width:46px; height:46px; border:2px solid #555; background:rgba(0,0,0,0.55);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  cursor:pointer; position:relative; }
+.hs.sel { border-color:#fff; box-shadow:0 0 6px #fff6; }
+.hc { width:26px; height:26px; border-radius:3px; display:block; }
+.hn { font-size:6px; color:#ccc; margin-top:2px; }
 
-    /* Top nav */
-    .topbar {
-      background: rgba(0,0,0,0.8);
-      border-bottom: 3px solid #5a9e35;
-      padding: 10px 20px;
-      display: flex;
-      align-items: center;
-      gap: 20px;
-    }
-    .topbar a {
-      color: #aaa;
-      text-decoration: none;
-      font-size: 8px;
-      letter-spacing: 1px;
-    }
-    .topbar a:hover { color: #5a9e35; }
-    .topbar a.active { color: #5a9e35; }
+/* Chat */
+#chat-wrap { position:fixed; bottom:76px; left:10px; width:260px; z-index:10; display:none; }
+#chat-msgs  { max-height:90px; overflow:hidden; display:flex; flex-direction:column-reverse; }
+.cmsg { font-size:10px; color:#fff; text-shadow:1px 1px 0 #000;
+  background:rgba(0,0,0,0.35); padding:2px 6px; margin-top:2px; word-break:break-all; }
 
-    /* Hero */
-    .hero {
-      text-align: center;
-      padding: 40px 20px 20px;
-    }
-    .hero h1 {
-      font-size: clamp(22px, 5vw, 48px);
-      color: #5a9e35;
-      text-shadow:
-        3px 3px 0 #2d5a1a,
-        6px 6px 0 rgba(0,0,0,0.5);
-      letter-spacing: 2px;
-      line-height: 1.4;
-    }
-    .hero h1 span { color: #7ec850; }
-    .hero p {
-      font-size: 8px;
-      color: #aaa;
-      margin: 16px auto 0;
-      letter-spacing: 2px;
-      line-height: 2;
-      max-width: 500px;
-    }
-    .badge {
-      display: inline-block;
-      background: #5a9e35;
-      color: #fff;
-      font-size: 7px;
-      padding: 4px 10px;
-      margin: 4px;
-      image-rendering: pixelated;
-    }
-    .badge.blue   { background: #2255aa; }
-    .badge.orange { background: #cc6600; }
+/* Click-to-lock */
+#lock-msg { position:fixed; inset:0; background:rgba(0,0,0,0.55);
+  color:#fff; font-size:18px; display:flex; align-items:center;
+  justify-content:center; z-index:50; cursor:pointer; display:none;
+  text-shadow:1px 1px 2px #000; text-align:center; padding:20px; }
 
-    /* Game area */
-    .game-section {
-      max-width: 1000px;
-      margin: 24px auto;
-      padding: 0 16px;
-    }
+/* ── TOUCH CONTROLS ── */
+#touch-ui { display:none; }
 
-    .game-frame-wrap {
-      position: relative;
-      background: #000;
-      border: 4px solid #5a9e35;
-      box-shadow: 0 0 0 4px #2d5a1a, 0 0 40px rgba(90,158,53,0.3);
-      image-rendering: pixelated;
-    }
-    .game-frame-wrap iframe {
-      width: 100%;
-      height: 550px;
-      border: none;
-      display: block;
-      background: #000;
-    }
+#jbase { position:fixed; bottom:90px; left:20px; width:110px; height:110px;
+  border-radius:55px; background:rgba(255,255,255,0.1);
+  border:2px solid rgba(255,255,255,0.3); z-index:20; touch-action:none; }
+#jknob { position:absolute; width:46px; height:46px; border-radius:23px;
+  background:rgba(255,255,255,0.45); border:2px solid rgba(255,255,255,0.7);
+  top:32px; left:32px; pointer-events:none; }
 
-    /* Loading overlay */
-    .loading-overlay {
-      position: absolute;
-      inset: 0;
-      background: #1a1a1a;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 16px;
-      cursor: pointer;
-      transition: opacity 0.3s;
-    }
-    .loading-overlay.hidden { display: none; }
-    .loading-overlay .mc-logo {
-      font-size: clamp(18px, 4vw, 36px);
-      color: #5a9e35;
-      text-shadow: 3px 3px 0 #2d5a1a;
-      text-align: center;
-      line-height: 1.6;
-    }
-    .play-btn {
-      background: #5a9e35;
-      color: #fff;
-      border: none;
-      font-family: 'Press Start 2P', monospace;
-      font-size: 13px;
-      padding: 14px 32px;
-      cursor: pointer;
-      letter-spacing: 2px;
-      box-shadow: 0 4px 0 #2d5a1a, inset 0 1px 0 rgba(255,255,255,0.2);
-      transition: transform 0.1s;
-    }
-    .play-btn:hover { background: #6bbf40; transform: translateY(-2px); }
-    .play-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #2d5a1a; }
-    .play-note {
-      font-size: 7px;
-      color: #666;
-      letter-spacing: 1px;
-      text-align: center;
-      line-height: 2;
-    }
+.tbtn { position:fixed; z-index:20; border-radius:50%;
+  background:rgba(0,0,0,0.4); border:2px solid rgba(255,255,255,0.45);
+  color:#fff; font-size:11px; display:flex; align-items:center;
+  justify-content:center; user-select:none; -webkit-user-select:none;
+  touch-action:none; font-family:monospace; font-weight:bold; }
+.tbtn.on { background:rgba(255,255,255,0.3); }
+#t-jump  { width:66px; height:66px; right:18px;  bottom:170px; }
+#t-break { width:58px; height:58px; right:96px;  bottom:150px; font-size:10px; }
+#t-place { width:58px; height:58px; right:18px;  bottom:96px;  font-size:10px; }
 
-    /* Info cards */
-    .cards {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 16px;
-      max-width: 1000px;
-      margin: 24px auto;
-      padding: 0 16px;
-    }
-    .card {
-      background: rgba(0,0,0,0.6);
-      border: 3px solid #333;
-      border-top-color: #5a9e35;
-      padding: 20px;
-    }
-    .card h3 {
-      font-size: 10px;
-      color: #5a9e35;
-      margin-bottom: 12px;
-      letter-spacing: 1px;
-    }
-    .card p, .card li {
-      font-size: 7px;
-      color: #aaa;
-      line-height: 2.2;
-      list-style: none;
-    }
-    .card li::before { content: '▶ '; color: #5a9e35; }
+#look-zone { position:fixed; right:0; top:0; width:55%; height:70%;
+  z-index:15; touch-action:none; }
 
-    /* Multiplayer section */
-    .mp-section {
-      max-width: 1000px;
-      margin: 24px auto;
-      padding: 0 16px 40px;
-    }
-    .mp-box {
-      background: rgba(0,50,100,0.4);
-      border: 3px solid #2255aa;
-      padding: 24px;
-    }
-    .mp-box h2 {
-      font-size: 12px;
-      color: #4488ff;
-      margin-bottom: 16px;
-      letter-spacing: 2px;
-    }
-    .steps { list-style: none; }
-    .steps li {
-      font-size: 7px;
-      color: #ccc;
-      padding: 8px 0;
-      border-bottom: 1px solid #1a2a3a;
-      line-height: 2;
-    }
-    .steps li:last-child { border-bottom: none; }
-    .steps li span {
-      display: inline-block;
-      background: #2255aa;
-      color: #fff;
-      width: 20px;
-      height: 20px;
-      line-height: 20px;
-      text-align: center;
-      margin-right: 10px;
-      font-size: 8px;
-    }
-    .server-link {
-      display: inline-block;
-      background: #2255aa;
-      color: #fff;
-      font-family: 'Press Start 2P', monospace;
-      font-size: 7px;
-      padding: 10px 18px;
-      margin-top: 16px;
-      cursor: pointer;
-      text-decoration: none;
-      letter-spacing: 1px;
-      box-shadow: 0 3px 0 #112244;
-    }
-    .server-link:hover { background: #3366cc; }
+/* Block prev/next */
+#t-bprev { position:fixed; bottom:16px; left:140px; z-index:20;
+  background:rgba(0,0,0,0.5); border:2px solid #555; color:#fff;
+  font-size:18px; width:38px; height:38px; display:flex;
+  align-items:center; justify-content:center; }
+#t-bnext { position:fixed; bottom:16px; right:140px; z-index:20;
+  background:rgba(0,0,0,0.5); border:2px solid #555; color:#fff;
+  font-size:18px; width:38px; height:38px; display:flex;
+  align-items:center; justify-content:center; }
 
-    /* Controls */
-    .controls-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin-top: 8px;
-    }
-    .key {
-      background: #222;
-      border: 2px solid #444;
-      border-bottom-color: #666;
-      padding: 4px 8px;
-      font-size: 7px;
-      color: #fff;
-      display: inline-block;
-    }
+/* Start screen */
+#start { position:fixed; inset:0; background:linear-gradient(160deg,#1a3a1a,#0a0a1a);
+  display:flex; flex-direction:column; align-items:center;
+  justify-content:center; z-index:100; color:#fff; }
+#start h1 { font-size:clamp(26px,6vw,54px); color:#5d9e35;
+  text-shadow:3px 3px 0 #2d5a1a; letter-spacing:3px; margin-bottom:6px; }
+#start .sub { color:#888; font-size:11px; letter-spacing:4px; margin-bottom:32px; }
+#name-in { background:#111; color:#fff; border:2px solid #5d9e35;
+  padding:10px 18px; font-size:16px; font-family:monospace;
+  width:230px; margin-bottom:14px; text-align:center; outline:none; }
+#play-btn { background:#5d9e35; color:#fff; border:none; font-family:monospace;
+  font-size:16px; padding:13px 40px; cursor:pointer; letter-spacing:2px;
+  box-shadow:0 4px 0 #2d5a1a; margin-bottom:20px; }
+#play-btn:hover { background:#6bbf40; }
+.hint { font-size:9px; color:#555; line-height:2.2; text-align:center; }
+.hint span { color:#777; }
 
-    /* Footer */
-    footer {
-      text-align: center;
-      padding: 20px;
-      font-size: 6px;
-      color: #444;
-      line-height: 2.5;
-      border-top: 2px solid #222;
-    }
-
-    @media (max-width: 600px) {
-      .game-frame-wrap iframe { height: 380px; }
-      .controls-grid { grid-template-columns: 1fr; }
-    }
-  </style>
+/* Sharing banner */
+#share-banner { position:fixed; top:10px; right:10px; background:rgba(0,0,0,0.7);
+  border:2px solid #5d9e35; color:#fff; font-size:9px; padding:8px 12px;
+  z-index:10; max-width:200px; line-height:1.8; display:none; }
+#share-url { color:#5d9e35; font-size:8px; word-break:break-all; cursor:pointer; }
+#share-url:hover { text-decoration:underline; }
+</style>
 </head>
 <body>
+<canvas id="canvas"></canvas>
 
-<!-- Top bar -->
-<div class="topbar">
-  <a href="/">🏎 Racing</a>
-  <a href="/minecraft" class="active">⛏ Minecraft</a>
+<div id="xhair"></div>
+
+<div id="hud">
+  <div id="pos-display"></div>
+  <div id="player-count"></div>
+  <div id="block-label"></div>
 </div>
 
-<!-- Hero -->
-<div class="hero">
-  <h1>⛏ MINE<span>CRAFT</span><br>FREE ONLINE</h1>
-  <p>Play directly in your browser. No download. No account needed.<br>Invite friends with this URL to play together.</p>
-  <br>
-  <span class="badge">✅ 100% FREE</span>
-  <span class="badge blue">🌐 BROWSER</span>
-  <span class="badge orange">👥 MULTIPLAYER</span>
+<div id="hotbar"></div>
+
+<div id="chat-wrap">
+  <div id="chat-msgs"></div>
 </div>
 
-<!-- Game -->
-<div class="game-section">
-  <div class="game-frame-wrap">
-    <div class="loading-overlay" id="overlay">
-      <div class="mc-logo">⛏<br>MINECRAFT<br>CLASSIC</div>
-      <button class="play-btn" onclick="loadGame()">▶ PLAY NOW</button>
-      <div class="play-note">
-        Powered by Mojang's official Minecraft Classic<br>
-        Enter any username — no account needed
-      </div>
-    </div>
-    <iframe id="game-iframe"
-      src="about:blank"
-      allowfullscreen
-      allow="pointer-lock *; fullscreen *"
-      title="Minecraft Classic Online">
-    </iframe>
+<div id="lock-msg">Click to capture mouse<br><span style="font-size:13px;color:#aaa">Press ESC to release</span></div>
+
+<!-- Touch UI -->
+<div id="touch-ui">
+  <div id="jbase"><div id="jknob"></div></div>
+  <div class="tbtn" id="t-jump">JUMP</div>
+  <div class="tbtn" id="t-break">⛏BRK</div>
+  <div class="tbtn" id="t-place">📦PUT</div>
+  <div id="look-zone"></div>
+  <div id="t-bprev">◀</div>
+  <div id="t-bnext">▶</div>
+</div>
+
+<!-- Share -->
+<div id="share-banner">
+  🌐 <b>Invite friends!</b><br>
+  <div id="share-url"></div>
+  <span style="color:#888;font-size:7px">Tap URL to copy</span>
+</div>
+
+<!-- Start screen -->
+<div id="start">
+  <h1>⛏ BLOCKWORLD</h1>
+  <div class="sub">FREE MULTIPLAYER</div>
+  <input id="name-in" type="text" placeholder="Enter your name" maxlength="16" autocomplete="off">
+  <button id="play-btn">▶ PLAY NOW</button>
+  <div class="hint">
+    <span>PC:</span> WASD move · Mouse look · Left click break · Right click place<br>
+    <span>Mobile:</span> Left joystick move · Drag right to look · BRK / PUT buttons<br>
+    <span>Scroll</span> or <span>◀ ▶</span> to switch block type
   </div>
 </div>
 
-<!-- Info cards -->
-<div class="cards">
-  <div class="card">
-    <h3>🎮 CONTROLS</h3>
-    <div class="controls-grid">
-      <div><span class="key">W A S D</span><br><span style="font-size:6px;color:#666">Move</span></div>
-      <div><span class="key">MOUSE</span><br><span style="font-size:6px;color:#666">Look</span></div>
-      <div><span class="key">LEFT CLICK</span><br><span style="font-size:6px;color:#666">Break block</span></div>
-      <div><span class="key">RIGHT CLICK</span><br><span style="font-size:6px;color:#666">Place block</span></div>
-      <div><span class="key">SPACE</span><br><span style="font-size:6px;color:#666">Jump</span></div>
-      <div><span class="key">ESC</span><br><span style="font-size:6px;color:#666">Menu / unlock mouse</span></div>
-    </div>
-  </div>
+<script src="/socket.io/socket.io.js"></script>
+<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.158.0/build/three.module.js"}}</script>
+<script type="module">
+import * as THREE from 'three';
 
-  <div class="card">
-    <h3>⛏ WHAT YOU GET</h3>
-    <ul class="steps" style="margin-top:4px">
-      <li>Build & destroy blocks</li>
-      <li>Explore infinite worlds</li>
-      <li>Play with friends online</li>
-      <li>Pick from 100+ block types</li>
-      <li>Creative & survival modes</li>
-      <li>Zero cost — always free</li>
-    </ul>
-  </div>
+// ── CONSTANTS ──────────────────────────────────────────────────────────────
+const W=48, H=20, D=48;
+const BLOCK_DEFS = {
+  1:{ name:'Grass',   col:0x5d9e35 },
+  2:{ name:'Dirt',    col:0x8B4513 },
+  3:{ name:'Stone',   col:0x888888 },
+  4:{ name:'Bedrock', col:0x222222 },
+  5:{ name:'Wood',    col:0x6B4226 },
+  6:{ name:'Leaves',  col:0x2d8a20 },
+  7:{ name:'Sand',    col:0xc8b560 },
+  8:{ name:'Plank',   col:0xD4A843 },
+  9:{ name:'Brick',   col:0x9C3B2E },
+};
+const HOTBAR = [1,2,3,5,6,7,8,9];
+const SPEED=5, JUMP=9, GRAVITY=28, PLAYER_H=1.8, PLAYER_W=0.55;
+const EYE_H=1.6;
 
-  <div class="card">
-    <h3>📱 MOBILE</h3>
-    <ul>
-      <li>Works on Android Chrome</li>
-      <li>Touch controls included</li>
-      <li>Landscape mode recommended</li>
-      <li>Pinch to zoom support</li>
-    </ul>
-  </div>
-</div>
+// ── WORLD ──────────────────────────────────────────────────────────────────
+const world = new Uint8Array(W*H*D);
+const idx=(x,y,z)=>x+W*(y+H*z);
+function getBlock(x,y,z){
+  if(x<0||x>=W||y<0||y>=H||z<0||z>=D) return 0;
+  return world[idx(x,y,z)];
+}
+function setBlock(x,y,z,t){
+  if(x<0||x>=W||y<0||y>=H||z<0||z>=D) return;
+  world[idx(x,y,z)]=t;
+}
+function isSolid(x,y,z){
+  if(x<0||x>=W||z<0||z>=D) return true; // world walls solid
+  if(y<0) return true;
+  if(y>=H) return false;
+  return world[idx(x,y,z)]>0;
+}
 
-<!-- Multiplayer -->
-<div class="mp-section">
-  <div class="mp-box">
-    <h2>👥 PLAY WITH FRIENDS</h2>
-    <ol class="steps">
-      <li><span>1</span> Click PLAY NOW above — game loads in your browser instantly</li>
-      <li><span>2</span> Enter any username when prompted — no account required</li>
-      <li><span>3</span> Click <b style="color:#4488ff">Start Game</b> to create a world, then copy the invite link</li>
-      <li><span>4</span> Send the invite link to friends — they open it in their browser</li>
-      <li><span>5</span> Everyone builds together in real time, no download needed</li>
-    </ol>
-    <a class="server-link" href="https://classic.minecraft.net/" target="_blank" rel="noopener">
-      🌐 OPEN FULL SCREEN
-    </a>
-    &nbsp;
-    <a class="server-link" href="https://minecraft.wiki/w/Classic" target="_blank" rel="noopener" style="background:#cc6600;box-shadow:0 3px 0 #884400;">
-      📖 HOW TO PLAY GUIDE
-    </a>
-  </div>
-</div>
+// Seeded random (same terrain on all clients)
+let _s=42;
+function srand(){ _s=(_s*9301+49297)%233280; return _s/233280; }
 
-<footer>
-  Minecraft Classic powered by <a href="https://classic.minecraft.net" target="_blank" rel="noopener" style="color:#5a9e35">classic.minecraft.net</a> — official free version by Mojang.<br>
-  This site is not affiliated with Mojang or Microsoft.<br>
-  "Minecraft" name belongs to Mojang Studios.
-</footer>
+function generateTerrain(){
+  _s=42;
+  for(let x=0;x<W;x++) for(let z=0;z<D;z++){
+    const h=5+Math.round(
+      2.0*Math.sin(x*0.25)+2.0*Math.cos(z*0.22)+
+      1.2*Math.sin(x*0.12+z*0.11)+
+      0.8*Math.cos(x*0.07-z*0.09)
+    );
+    const top=Math.max(2,Math.min(H-3,h));
+    setBlock(x,0,z,4);
+    for(let y=1;y<top-1;y++) setBlock(x,y,z,3);
+    setBlock(x,top-1,z,2);
+    setBlock(x,top,z,1);
+  }
+  // Trees
+  for(let i=0;i<12;i++){
+    const tx=3+Math.floor(srand()*(W-6));
+    const tz=3+Math.floor(srand()*(D-6));
+    let ty=H-1; while(ty>0&&getBlock(tx,ty,tz)===0) ty--;
+    ty++;
+    if(ty>1&&ty<H-6){
+      for(let j=0;j<4;j++) setBlock(tx,ty+j,tz,5);
+      for(let lx=-2;lx<=2;lx++) for(let lz=-2;lz<=2;lz++) for(let ly=2;ly<=5;ly++)
+        if(Math.abs(lx)+Math.abs(lz)<=3) setBlock(tx+lx,ty+ly,tz+lz,6);
+    }
+  }
+}
 
-<script>
-  function loadGame() {
-    document.getElementById('overlay').classList.add('hidden');
-    document.getElementById('game-iframe').src = 'https://classic.minecraft.net/';
+// ── THREE.JS SETUP ─────────────────────────────────────────────────────────
+const canvas=document.getElementById('canvas');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true;
+
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x87ceeb);
+scene.fog=new THREE.Fog(0x87ceeb,60,200);
+
+const camera=new THREE.PerspectiveCamera(70,innerWidth/innerHeight,0.05,300);
+
+window.addEventListener('resize',()=>{
+  renderer.setSize(innerWidth,innerHeight);
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+});
+
+// Lighting
+scene.add(new THREE.AmbientLight(0xffffff,0.6));
+const sun=new THREE.DirectionalLight(0xffffff,1.0);
+sun.position.set(50,100,50);
+sun.castShadow=true;
+sun.shadow.mapSize.set(1024,1024);
+sun.shadow.camera.near=0.5; sun.shadow.camera.far=300;
+sun.shadow.camera.left=-80; sun.shadow.camera.right=80;
+sun.shadow.camera.top=80;   sun.shadow.camera.bottom=-80;
+scene.add(sun);
+
+// ── INSTANCED MESH RENDERING ───────────────────────────────────────────────
+const blockGeo=new THREE.BoxGeometry(1,1,1);
+const meshes={};
+const dummy=new THREE.Object3D();
+
+Object.entries(BLOCK_DEFS).forEach(([t,d])=>{
+  const mat=new THREE.MeshLambertMaterial({color:d.col});
+  const m=new THREE.InstancedMesh(blockGeo,mat,W*H*D);
+  m.count=0; m.castShadow=true; m.receiveShadow=true;
+  scene.add(m); meshes[t]=m;
+});
+
+function isExposed(x,y,z){
+  return getBlock(x+1,y,z)===0||getBlock(x-1,y,z)===0||
+         getBlock(x,y+1,z)===0||getBlock(x,y-1,z)===0||
+         getBlock(x,y,z+1)===0||getBlock(x,y,z-1)===0;
+}
+
+let meshDirty=false;
+function rebuildMeshes(){
+  const counts={};
+  HOTBAR.forEach(t=>counts[t]=0); counts[4]=0;
+  for(let x=0;x<W;x++) for(let y=0;y<H;y++) for(let z=0;z<D;z++){
+    const t=getBlock(x,y,z);
+    if(t>0&&isExposed(x,y,z)) counts[t]=(counts[t]||0)+1;
+  }
+  Object.keys(meshes).forEach(t=>{ meshes[t].count=counts[t]||0; });
+  const idx2={};
+  Object.keys(meshes).forEach(t=>idx2[t]=0);
+  for(let x=0;x<W;x++) for(let y=0;y<H;y++) for(let z=0;z<D;z++){
+    const t=getBlock(x,y,z);
+    if(t>0&&isExposed(x,y,z)&&meshes[t]){
+      dummy.position.set(x+.5,y+.5,z+.5);
+      dummy.updateMatrix();
+      meshes[t].setMatrixAt(idx2[t]++,dummy.matrix);
+    }
+  }
+  Object.values(meshes).forEach(m=>m.instanceMatrix.needsUpdate=true);
+  meshDirty=false;
+}
+
+// ── BLOCK HIGHLIGHT ────────────────────────────────────────────────────────
+const hlMesh=new THREE.Mesh(
+  new THREE.BoxGeometry(1.02,1.02,1.02),
+  new THREE.MeshBasicMaterial({color:0x000000,wireframe:true,transparent:true,opacity:0.5})
+);
+hlMesh.visible=false;
+scene.add(hlMesh);
+
+// ── PLAYER STATE ───────────────────────────────────────────────────────────
+const player={
+  pos:new THREE.Vector3(W/2+.5,12,D/2+.5),
+  vel:new THREE.Vector3(),
+  rotY:0, rotX:0, onGround:false
+};
+const keys={w:false,s:false,a:false,d:false,jump:false};
+let hotbarIdx=0, selectedBlock=HOTBAR[0];
+let pointerLocked=false;
+let gameActive=false;
+let myColor='#44aaff';
+let playerName='Player';
+
+// ── SPAWN ABOVE TERRAIN ────────────────────────────────────────────────────
+function spawnPlayer(){
+  const sx=Math.floor(W/2), sz=Math.floor(D/2);
+  let sy=H-1; while(sy>0&&getBlock(sx,sy,sz)===0) sy--;
+  player.pos.set(sx+.5,sy+2.5,sz+.5);
+  player.vel.set(0,0,0);
+}
+
+// ── PHYSICS ────────────────────────────────────────────────────────────────
+function playerAABBSolid(px,py,pz){
+  const hw=PLAYER_W/2;
+  const x0=Math.floor(px-hw), x1=Math.floor(px+hw);
+  const y0=Math.floor(py),    y1=Math.floor(py+PLAYER_H-0.01);
+  const z0=Math.floor(pz-hw), z1=Math.floor(pz+hw);
+  for(let x=x0;x<=x1;x++) for(let y=y0;y<=y1;y++) for(let z=z0;z<=z1;z++)
+    if(isSolid(x,y,z)) return true;
+  return false;
+}
+
+const joyVec={x:0,y:0};
+function updatePlayer(dt){
+  // Direction
+  const fw=new THREE.Vector3(-Math.sin(player.rotY),0,-Math.cos(player.rotY));
+  const rt=new THREE.Vector3(Math.cos(player.rotY),0,-Math.sin(player.rotY));
+  const move=new THREE.Vector3();
+  if(keys.w||joyVec.y<-0.1) move.addScaledVector(fw,1);
+  if(keys.s||joyVec.y>0.1)  move.addScaledVector(fw,-1);
+  if(keys.a||joyVec.x<-0.1) move.addScaledVector(rt,-1);
+  if(keys.d||joyVec.x>0.1)  move.addScaledVector(rt,1);
+  if(joyVec.x!==0||joyVec.y!==0){
+    const jlen=Math.sqrt(joyVec.x*joyVec.x+joyVec.y*joyVec.y);
+    if(jlen>1) move.multiplyScalar(1/jlen);
+  }
+  if(move.length()>0) move.normalize();
+
+  player.vel.x=move.x*SPEED;
+  player.vel.z=move.z*SPEED;
+  player.vel.y-=GRAVITY*dt;
+  if(player.vel.y<-40) player.vel.y=-40;
+
+  if(keys.jump&&player.onGround){ player.vel.y=JUMP; player.onGround=false; keys.jump=false; }
+
+  // X
+  player.pos.x+=player.vel.x*dt;
+  if(playerAABBSolid(player.pos.x,player.pos.y,player.pos.z)){
+    player.pos.x-=player.vel.x*dt; player.vel.x=0;
+  }
+  // Z
+  player.pos.z+=player.vel.z*dt;
+  if(playerAABBSolid(player.pos.x,player.pos.y,player.pos.z)){
+    player.pos.z-=player.vel.z*dt; player.vel.z=0;
+  }
+  // Y
+  const prevY=player.pos.y;
+  player.pos.y+=player.vel.y*dt;
+  if(playerAABBSolid(player.pos.x,player.pos.y,player.pos.z)){
+    player.pos.y=prevY;
+    if(player.vel.y<0) player.onGround=true;
+    player.vel.y=0;
+  } else { if(player.vel.y<-1) player.onGround=false; }
+
+  // Clamp
+  const hw=PLAYER_W/2+0.05;
+  player.pos.x=Math.max(hw,Math.min(W-hw,player.pos.x));
+  player.pos.z=Math.max(hw,Math.min(D-hw,player.pos.z));
+  if(player.pos.y<0.5){ player.pos.y=0.5; player.vel.y=0; player.onGround=true; }
+}
+
+function updateCamera(){
+  camera.position.set(player.pos.x, player.pos.y+EYE_H, player.pos.z);
+  camera.rotation.order='YXZ';
+  camera.rotation.y=player.rotY;
+  camera.rotation.x=player.rotX;
+}
+
+// ── RAYCAST ────────────────────────────────────────────────────────────────
+function raycast(){
+  const dir=new THREE.Vector3(0,0,-1);
+  dir.applyEuler(new THREE.Euler(player.rotX,player.rotY,0,'YXZ'));
+  const pos=camera.position.clone();
+  let px=-9,py=-9,pz=-9;
+  const STEPS=60, DIST=6, step=DIST/STEPS;
+  for(let i=0;i<STEPS;i++){
+    pos.addScaledVector(dir,step);
+    const bx=Math.floor(pos.x),by=Math.floor(pos.y),bz=Math.floor(pos.z);
+    if(bx===px&&by===py&&bz===pz) continue;
+    if(getBlock(bx,by,bz)>0)
+      return {hit:true,x:bx,y:by,z:bz,nx:px,ny:py,nz:pz};
+    px=bx;py=by;pz=bz;
+  }
+  return {hit:false};
+}
+
+// ── BLOCK ACTIONS ──────────────────────────────────────────────────────────
+function breakBlock(x,y,z){
+  if(getBlock(x,y,z)===4) return; // bedrock
+  setBlock(x,y,z,0);
+  meshDirty=true;
+  socket.emit('blockChange',{x,y,z,type:0});
+}
+function placeBlock(x,y,z,t){
+  if(x<0||x>=W||y<0||y>=H||z<0||z>=D) return;
+  // Don't place inside player
+  const hw=PLAYER_W/2+0.1;
+  if(Math.abs(x+.5-player.pos.x)<hw && y+1>player.pos.y && y<player.pos.y+PLAYER_H &&
+     Math.abs(z+.5-player.pos.z)<hw) return;
+  setBlock(x,y,z,t);
+  meshDirty=true;
+  socket.emit('blockChange',{x,y,z,type:t});
+}
+
+// ── KEYBOARD ───────────────────────────────────────────────────────────────
+document.addEventListener('keydown',e=>{
+  if(!gameActive) return;
+  const k=e.key.toLowerCase();
+  if(k==='w'||k==='arrowup')    keys.w=true;
+  if(k==='s'||k==='arrowdown')  keys.s=true;
+  if(k==='a'||k==='arrowleft')  keys.a=true;
+  if(k==='d'||k==='arrowright') keys.d=true;
+  if(k===' '||k==='arrowup') { keys.jump=true; e.preventDefault(); }
+  const n=parseInt(e.key);
+  if(n>=1&&n<=HOTBAR.length){ hotbarIdx=n-1; selectedBlock=HOTBAR[hotbarIdx]; updateHotbar(); }
+});
+document.addEventListener('keyup',e=>{
+  const k=e.key.toLowerCase();
+  if(k==='w'||k==='arrowup')    keys.w=false;
+  if(k==='s'||k==='arrowdown')  keys.s=false;
+  if(k==='a'||k==='arrowleft')  keys.a=false;
+  if(k==='d'||k==='arrowright') keys.d=false;
+  if(k===' ') keys.jump=false;
+});
+window.addEventListener('wheel',e=>{
+  if(!gameActive) return;
+  hotbarIdx=(hotbarIdx+(e.deltaY>0?1:-1)+HOTBAR.length)%HOTBAR.length;
+  selectedBlock=HOTBAR[hotbarIdx]; updateHotbar();
+});
+
+// ── POINTER LOCK ───────────────────────────────────────────────────────────
+canvas.addEventListener('click',()=>{ if(gameActive&&!isTouchDevice()) canvas.requestPointerLock(); });
+document.addEventListener('pointerlockchange',()=>{
+  pointerLocked=!!document.pointerLockElement;
+  document.getElementById('lock-msg').style.display=(!pointerLocked&&gameActive&&!isTouchDevice())?'flex':'none';
+});
+document.addEventListener('mousemove',e=>{
+  if(!pointerLocked||!gameActive) return;
+  player.rotY-=e.movementX*0.002;
+  player.rotX=Math.max(-1.55,Math.min(1.55,player.rotX-e.movementY*0.002));
+});
+document.addEventListener('mousedown',e=>{
+  if(!gameActive) return;
+  if(!pointerLocked&&!isTouchDevice()){ canvas.requestPointerLock(); return; }
+  const r=raycast();
+  if(!r.hit) return;
+  if(e.button===0) breakBlock(r.x,r.y,r.z);
+  if(e.button===2) placeBlock(r.nx,r.ny,r.nz,selectedBlock);
+});
+canvas.addEventListener('contextmenu',e=>e.preventDefault());
+
+// ── TOUCH ──────────────────────────────────────────────────────────────────
+function isTouchDevice(){ return 'ontouchstart' in window||navigator.maxTouchPoints>0; }
+
+const jbase=document.getElementById('jbase');
+const jknob=document.getElementById('jknob');
+let jTouchId=-1, jCX=0, jCY=0;
+const JR=50;
+
+function joyUpdate(cx,cy,tx,ty){
+  let dx=tx-cx, dy=ty-cy;
+  const d=Math.sqrt(dx*dx+dy*dy);
+  if(d>JR){ dx*=JR/d; dy*=JR/d; }
+  jknob.style.left=(32+dx)+'px';
+  jknob.style.top =(32+dy)+'px';
+  joyVec.x=dx/JR; joyVec.y=dy/JR;
+}
+
+jbase.addEventListener('touchstart',e=>{
+  e.preventDefault();
+  const t=e.changedTouches[0];
+  jTouchId=t.identifier;
+  const r=jbase.getBoundingClientRect();
+  jCX=r.left+55; jCY=r.top+55;
+  joyUpdate(jCX,jCY,t.clientX,t.clientY);
+},{passive:false});
+jbase.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  const t=[...e.changedTouches].find(x=>x.identifier===jTouchId);
+  if(t) joyUpdate(jCX,jCY,t.clientX,t.clientY);
+},{passive:false});
+jbase.addEventListener('touchend',e=>{
+  e.preventDefault();
+  jTouchId=-1; joyVec.x=0; joyVec.y=0;
+  jknob.style.left='32px'; jknob.style.top='32px';
+},{passive:false});
+
+// Look zone
+let lTouchId=-1, lLX=0, lLY=0;
+const lz=document.getElementById('look-zone');
+lz.addEventListener('touchstart',e=>{
+  e.preventDefault();
+  const t=e.changedTouches[0];
+  lTouchId=t.identifier; lLX=t.clientX; lLY=t.clientY;
+},{passive:false});
+lz.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  const t=[...e.changedTouches].find(x=>x.identifier===lTouchId);
+  if(!t) return;
+  player.rotY-=(t.clientX-lLX)*0.007;
+  player.rotX=Math.max(-1.55,Math.min(1.55,player.rotX-(t.clientY-lLY)*0.007));
+  lLX=t.clientX; lLY=t.clientY;
+},{passive:false});
+lz.addEventListener('touchend',e=>{ lTouchId=-1; },{passive:false});
+
+// Touch buttons
+function touchBtn(id,onDown,onUp){
+  const el=document.getElementById(id);
+  el.addEventListener('touchstart',e=>{ e.preventDefault(); el.classList.add('on'); onDown&&onDown(); },{passive:false});
+  el.addEventListener('touchend',  e=>{ e.preventDefault(); el.classList.remove('on'); onUp&&onUp(); },{passive:false});
+  el.addEventListener('touchcancel',e=>{ el.classList.remove('on'); onUp&&onUp(); },{passive:false});
+}
+touchBtn('t-jump', ()=>keys.jump=true, ()=>keys.jump=false);
+touchBtn('t-break',()=>{
+  const r=raycast(); if(r.hit) breakBlock(r.x,r.y,r.z);
+});
+touchBtn('t-place',()=>{
+  const r=raycast(); if(r.hit) placeBlock(r.nx,r.ny,r.nz,selectedBlock);
+});
+document.getElementById('t-bprev').addEventListener('touchstart',e=>{
+  e.preventDefault();
+  hotbarIdx=(hotbarIdx-1+HOTBAR.length)%HOTBAR.length;
+  selectedBlock=HOTBAR[hotbarIdx]; updateHotbar();
+},{passive:false});
+document.getElementById('t-bnext').addEventListener('touchstart',e=>{
+  e.preventDefault();
+  hotbarIdx=(hotbarIdx+1)%HOTBAR.length;
+  selectedBlock=HOTBAR[hotbarIdx]; updateHotbar();
+},{passive:false});
+
+// ── HOTBAR UI ──────────────────────────────────────────────────────────────
+function buildHotbar(){
+  const hb=document.getElementById('hotbar');
+  hb.innerHTML='';
+  HOTBAR.forEach((t,i)=>{
+    const d=BLOCK_DEFS[t];
+    const c=document.createElement('div');
+    c.className='hs'+(i===hotbarIdx?' sel':'');
+    c.id='hs'+i;
+    const hex='#'+d.col.toString(16).padStart(6,'0');
+    c.innerHTML=`<div class="hc" style="background:${hex}"></div><div class="hn">${d.name.substring(0,5)}</div>`;
+    c.addEventListener('click',()=>{ hotbarIdx=i; selectedBlock=HOTBAR[i]; updateHotbar(); });
+    hb.appendChild(c);
+  });
+  hb.style.display='flex';
+}
+function updateHotbar(){
+  document.querySelectorAll('.hs').forEach((el,i)=>el.classList.toggle('sel',i===hotbarIdx));
+  document.getElementById('block-label').textContent='Block: '+BLOCK_DEFS[selectedBlock].name;
+}
+
+// ── CHAT ───────────────────────────────────────────────────────────────────
+function addChat(name,msg,color){
+  const el=document.getElementById('chat-msgs');
+  const d=document.createElement('div');
+  d.className='cmsg';
+  d.innerHTML=`<span style="color:${color||'#aaa'}">${name}</span>: ${msg}`;
+  el.prepend(d);
+  if(el.children.length>8) el.lastChild.remove();
+}
+
+// ── MULTIPLAYER ────────────────────────────────────────────────────────────
+const socket=io();
+const otherPlayers={};
+
+socket.on('init',({blockChanges,players,color})=>{
+  myColor=color;
+  // Apply saved block changes over generated terrain
+  Object.entries(blockChanges).forEach(([k,t])=>{
+    const [x,y,z]=k.split(',').map(Number);
+    setBlock(x,y,z,t);
+  });
+  rebuildMeshes();
+  // Add existing players
+  Object.values(players).forEach(addOtherPlayer);
+});
+
+socket.on('playerJoin',p=>{ addOtherPlayer(p); addChat('','★ '+p.name+' joined','#5d9e35'); });
+socket.on('playerMove',({id,x,y,z,ry})=>{
+  const m=otherPlayers[id]; if(!m) return;
+  m.position.set(x,y+PLAYER_H/2,z); m.rotation.y=ry;
+});
+socket.on('playerLeave',id=>{
+  if(otherPlayers[id]){ scene.remove(otherPlayers[id]); delete otherPlayers[id]; }
+  addChat('','Player left','#888');
+});
+socket.on('blockChange',({x,y,z,type})=>{ setBlock(x,y,z,type); meshDirty=true; });
+socket.on('chat',({name,msg,color})=>addChat(name,msg,color));
+
+function addOtherPlayer(p){
+  const mat=new THREE.MeshLambertMaterial({color:p.color||'#4488ff'});
+  const group=new THREE.Group();
+  // Body
+  const body=new THREE.Mesh(new THREE.BoxGeometry(.6,1.8,.6),mat);
+  body.position.y=0; group.add(body);
+  // Head
+  const head=new THREE.Mesh(new THREE.BoxGeometry(.7,.7,.7),mat);
+  head.position.y=1.15; group.add(head);
+  group.position.set(p.x,p.y+PLAYER_H/2,p.z);
+  scene.add(group);
+  otherPlayers[p.id]=group;
+}
+
+// Send position every 80ms
+setInterval(()=>{
+  if(!gameActive) return;
+  socket.emit('move',{x:player.pos.x,y:player.pos.y,z:player.pos.z,ry:player.rotY});
+},80);
+
+// ── START ─────────────────────────────────────────────────────────────────
+document.getElementById('play-btn').addEventListener('click',startGame);
+document.getElementById('name-in').addEventListener('keydown',e=>{ if(e.key==='Enter') startGame(); });
+
+function startGame(){
+  const inp=document.getElementById('name-in');
+  playerName=(inp.value.trim()||'Player').substring(0,16);
+
+  generateTerrain();
+  rebuildMeshes();
+  spawnPlayer();
+
+  socket.emit('join',{name:playerName});
+
+  document.getElementById('start').style.display='none';
+  document.getElementById('hud').style.display='block';
+  document.getElementById('chat-wrap').style.display='block';
+  buildHotbar();
+  updateHotbar();
+
+  if(isTouchDevice()){
+    document.getElementById('touch-ui').style.display='block';
+    document.getElementById('t-bprev').style.display='flex';
+    document.getElementById('t-bnext').style.display='flex';
+  } else {
+    document.getElementById('lock-msg').style.display='flex';
+    canvas.requestPointerLock();
   }
 
-  // Auto-detect mobile
-  if (/Android|iPhone|iPad/i.test(navigator.userAgent)) {
-    document.querySelector('.play-note').textContent =
-      'Touch controls enabled ✓  Best in landscape mode';
+  // Share URL
+  const su=document.getElementById('share-banner');
+  const surl=document.getElementById('share-url');
+  const url=location.href;
+  surl.textContent=url;
+  surl.onclick=()=>{ navigator.clipboard?.writeText(url).then(()=>surl.textContent='✅ Copied!').catch(()=>{}); setTimeout(()=>surl.textContent=url,2000); };
+  su.style.display='block';
+
+  addChat('','Welcome '+playerName+'! Break=left-click / Place=right-click','#5d9e35');
+  gameActive=true;
+}
+
+// ── GAME LOOP ─────────────────────────────────────────────────────────────
+let last=performance.now();
+function loop(){
+  requestAnimationFrame(loop);
+  const now=performance.now();
+  const dt=Math.min((now-last)/1000,.05);
+  last=now;
+
+  if(gameActive){
+    updatePlayer(dt);
+    updateCamera();
+
+    // Highlight
+    const r=raycast();
+    if(r.hit){ hlMesh.visible=true; hlMesh.position.set(r.x+.5,r.y+.5,r.z+.5); }
+    else hlMesh.visible=false;
+
+    // Rebuild meshes if dirty
+    if(meshDirty) rebuildMeshes();
+
+    // HUD
+    document.getElementById('pos-display').textContent=
+      `X:${Math.floor(player.pos.x)} Y:${Math.floor(player.pos.y)} Z:${Math.floor(player.pos.z)}`;
+    document.getElementById('player-count').textContent=
+      `Players: ${Object.keys(otherPlayers).length+1}`;
   }
+
+  renderer.render(scene,camera);
+}
+loop();
 </script>
-
 </body>
 </html>
