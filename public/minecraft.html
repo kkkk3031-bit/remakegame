@@ -286,8 +286,8 @@
       <div class="mc-logo">⛏<br>MINECRAFT<br>CLASSIC</div>
       <button class="play-btn" onclick="loadGame()">▶ PLAY NOW</button>
       <div class="play-note">
-        Powered by ClassiCube (free & open source)<br>
-        No login required to play
+        Powered by Mojang's official Minecraft Classic<br>
+        Enter any username — no account needed
       </div>
     </div>
     <iframe id="game-iframe"
@@ -342,23 +342,23 @@
     <h2>👥 PLAY WITH FRIENDS</h2>
     <ol class="steps">
       <li><span>1</span> Click PLAY NOW above — game loads in your browser instantly</li>
-      <li><span>2</span> Click <b style="color:#4488ff">Multiplayer</b> in the game menu</li>
-      <li><span>3</span> Browse public servers OR create a free account on ClassiCube to host your own</li>
-      <li><span>4</span> Share the server IP with friends — they join via the same game on this page</li>
-      <li><span>5</span> Everyone plays together in real time, no download needed</li>
+      <li><span>2</span> Enter any username when prompted — no account required</li>
+      <li><span>3</span> Click <b style="color:#4488ff">Start Game</b> to create a world, then copy the invite link</li>
+      <li><span>4</span> Send the invite link to friends — they open it in their browser</li>
+      <li><span>5</span> Everyone builds together in real time, no download needed</li>
     </ol>
-    <a class="server-link" href="https://www.classicube.net/server/list/" target="_blank" rel="noopener">
-      🌐 BROWSE PUBLIC SERVERS
+    <a class="server-link" href="https://classic.minecraft.net/" target="_blank" rel="noopener">
+      🌐 OPEN FULL SCREEN
     </a>
     &nbsp;
-    <a class="server-link" href="https://www.classicube.net/acc/register/" target="_blank" rel="noopener" style="background:#cc6600;box-shadow:0 3px 0 #884400;">
-      ⚙ HOST YOUR OWN SERVER
+    <a class="server-link" href="https://minecraft.wiki/w/Classic" target="_blank" rel="noopener" style="background:#cc6600;box-shadow:0 3px 0 #884400;">
+      📖 HOW TO PLAY GUIDE
     </a>
   </div>
 </div>
 
 <footer>
-  Minecraft Classic gameplay powered by <a href="https://www.classicube.net" target="_blank" rel="noopener" style="color:#5a9e35">ClassiCube</a> — free & open source.<br>
+  Minecraft Classic powered by <a href="https://classic.minecraft.net" target="_blank" rel="noopener" style="color:#5a9e35">classic.minecraft.net</a> — official free version by Mojang.<br>
   This site is not affiliated with Mojang or Microsoft.<br>
   "Minecraft" name belongs to Mojang Studios.
 </footer>
@@ -366,7 +366,7 @@
 <script>
   function loadGame() {
     document.getElementById('overlay').classList.add('hidden');
-    document.getElementById('game-iframe').src = 'https://www.classicube.net/client/web/';
+    document.getElementById('game-iframe').src = 'https://classic.minecraft.net/';
   }
 
   // Auto-detect mobile
