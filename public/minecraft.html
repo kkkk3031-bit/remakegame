@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minecraft - Play Free Online</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #1a1a1a;
+      color: #fff;
+      font-family: 'Press Start 2P', monospace;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Minecraft dirt/grass pixel background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        repeating-linear-gradient(0deg, transparent, transparent 31px, rgba(0,0,0,0.08) 32px),
+        repeating-linear-gradient(90deg, transparent, transparent 31px, rgba(0,0,0,0.08) 32px),
+        linear-gradient(180deg, #1a3a1a 0%, #2d1a0e 60%, #1a1a1a 100%);
+      z-index: -1;
+    }
+
+    /* Top nav */
+    .topbar {
+      background: rgba(0,0,0,0.8);
+      border-bottom: 3px solid #5a9e35;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .topbar a {
+      color: #aaa;
+      text-decoration: none;
+      font-size: 8px;
+      letter-spacing: 1px;
+    }
+    .topbar a:hover { color: #5a9e35; }
+    .topbar a.active { color: #5a9e35; }
+
+    /* Hero */
+    .hero {
+      text-align: center;
+      padding: 40px 20px 20px;
+    }
+    .hero h1 {
+      font-size: clamp(22px, 5vw, 48px);
+      color: #5a9e35;
+      text-shadow:
+        3px 3px 0 #2d5a1a,
+        6px 6px 0 rgba(0,0,0,0.5);
+      letter-spacing: 2px;
+      line-height: 1.4;
+    }
+    .hero h1 span { color: #7ec850; }
+    .hero p {
+      font-size: 8px;
+      color: #aaa;
+      margin: 16px auto 0;
+      letter-spacing: 2px;
+      line-height: 2;
+      max-width: 500px;
+    }
+    .badge {
+      display: inline-block;
+      background: #5a9e35;
+      color: #fff;
+      font-size: 7px;
+      padding: 4px 10px;
+      margin: 4px;
+      image-rendering: pixelated;
+    }
+    .badge.blue   { background: #2255aa; }
+    .badge.orange { background: #cc6600; }
+
+    /* Game area */
+    .game-section {
+      max-width: 1000px;
+      margin: 24px auto;
+      padding: 0 16px;
+    }
+
+    .game-frame-wrap {
+      position: relative;
+      background: #000;
+      border: 4px solid #5a9e35;
+      box-shadow: 0 0 0 4px #2d5a1a, 0 0 40px rgba(90,158,53,0.3);
+      image-rendering: pixelated;
+    }
+    .game-frame-wrap iframe {
+      width: 100%;
+      height: 550px;
+      border: none;
+      display: block;
+      background: #000;
+    }
+
+    /* Loading overlay */
+    .loading-overlay {
+      position: absolute;
+      inset: 0;
+      background: #1a1a1a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      cursor: pointer;
+      transition: opacity 0.3s;
+    }
+    .loading-overlay.hidden { display: none; }
+    .loading-overlay .mc-logo {
+      font-size: clamp(18px, 4vw, 36px);
+      color: #5a9e35;
+      text-shadow: 3px 3px 0 #2d5a1a;
+      text-align: center;
+      line-height: 1.6;
+    }
+    .play-btn {
+      background: #5a9e35;
+      color: #fff;
+      border: none;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 13px;
+      padding: 14px 32px;
+      cursor: pointer;
+      letter-spacing: 2px;
+      box-shadow: 0 4px 0 #2d5a1a, inset 0 1px 0 rgba(255,255,255,0.2);
+      transition: transform 0.1s;
+    }
+    .play-btn:hover { background: #6bbf40; transform: translateY(-2px); }
+    .play-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #2d5a1a; }
+    .play-note {
+      font-size: 7px;
+      color: #666;
+      letter-spacing: 1px;
+      text-align: center;
+      line-height: 2;
+    }
+
+    /* Info cards */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      max-width: 1000px;
+      margin: 24px auto;
+      padding: 0 16px;
+    }
+    .card {
+      background: rgba(0,0,0,0.6);
+      border: 3px solid #333;
+      border-top-color: #5a9e35;
+      padding: 20px;
+    }
+    .card h3 {
+      font-size: 10px;
+      color: #5a9e35;
+      margin-bottom: 12px;
+      letter-spacing: 1px;
+    }
+    .card p, .card li {
+      font-size: 7px;
+      color: #aaa;
+      line-height: 2.2;
+      list-style: none;
+    }
+    .card li::before { content: '▶ '; color: #5a9e35; }
+
+    /* Multiplayer section */
+    .mp-section {
+      max-width: 1000px;
+      margin: 24px auto;
+      padding: 0 16px 40px;
+    }
+    .mp-box {
+      background: rgba(0,50,100,0.4);
+      border: 3px solid #2255aa;
+      padding: 24px;
+    }
+    .mp-box h2 {
+      font-size: 12px;
+      color: #4488ff;
+      margin-bottom: 16px;
+      letter-spacing: 2px;
+    }
+    .steps { list-style: none; }
+    .steps li {
+      font-size: 7px;
+      color: #ccc;
+      padding: 8px 0;
+      border-bottom: 1px solid #1a2a3a;
+      line-height: 2;
+    }
+    .steps li:last-child { border-bottom: none; }
+    .steps li span {
+      display: inline-block;
+      background: #2255aa;
+      color: #fff;
+      width: 20px;
+      height: 20px;
+      line-height: 20px;
+      text-align: center;
+      margin-right: 10px;
+      font-size: 8px;
+    }
+    .server-link {
+      display: inline-block;
+      background: #2255aa;
+      color: #fff;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 7px;
+      padding: 10px 18px;
+      margin-top: 16px;
+      cursor: pointer;
+      text-decoration: none;
+      letter-spacing: 1px;
+      box-shadow: 0 3px 0 #112244;
+    }
+    .server-link:hover { background: #3366cc; }
+
+    /* Controls */
+    .controls-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .key {
+      background: #222;
+      border: 2px solid #444;
+      border-bottom-color: #666;
+      padding: 4px 8px;
+      font-size: 7px;
+      color: #fff;
+      display: inline-block;
+    }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 20px;
+      font-size: 6px;
+      color: #444;
+      line-height: 2.5;
+      border-top: 2px solid #222;
+    }
+
+    @media (max-width: 600px) {
+      .game-frame-wrap iframe { height: 380px; }
+      .controls-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="topbar">
+  <a href="/">🏎 Racing</a>
+  <a href="/minecraft" class="active">⛏ Minecraft</a>
+</div>
+
+<!-- Hero -->
+<div class="hero">
+  <h1>⛏ MINE<span>CRAFT</span><br>FREE ONLINE</h1>
+  <p>Play directly in your browser. No download. No account needed.<br>Invite friends with this URL to play together.</p>
+  <br>
+  <span class="badge">✅ 100% FREE</span>
+  <span class="badge blue">🌐 BROWSER</span>
+  <span class="badge orange">👥 MULTIPLAYER</span>
+</div>
+
+<!-- Game -->
+<div class="game-section">
+  <div class="game-frame-wrap">
+    <div class="loading-overlay" id="overlay">
+      <div class="mc-logo">⛏<br>MINECRAFT<br>CLASSIC</div>
+      <button class="play-btn" onclick="loadGame()">▶ PLAY NOW</button>
+      <div class="play-note">
+        Powered by ClassiCube (free & open source)<br>
+        No login required to play
+      </div>
+    </div>
+    <iframe id="game-iframe"
+      src="about:blank"
+      allowfullscreen
+      allow="pointer-lock *; fullscreen *"
+      title="Minecraft Classic Online">
+    </iframe>
+  </div>
+</div>
+
+<!-- Info cards -->
+<div class="cards">
+  <div class="card">
+    <h3>🎮 CONTROLS</h3>
+    <div class="controls-grid">
+      <div><span class="key">W A S D</span><br><span style="font-size:6px;color:#666">Move</span></div>
+      <div><span class="key">MOUSE</span><br><span style="font-size:6px;color:#666">Look</span></div>
+      <div><span class="key">LEFT CLICK</span><br><span style="font-size:6px;color:#666">Break block</span></div>
+      <div><span class="key">RIGHT CLICK</span><br><span style="font-size:6px;color:#666">Place block</span></div>
+      <div><span class="key">SPACE</span><br><span style="font-size:6px;color:#666">Jump</span></div>
+      <div><span class="key">ESC</span><br><span style="font-size:6px;color:#666">Menu / unlock mouse</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>⛏ WHAT YOU GET</h3>
+    <ul class="steps" style="margin-top:4px">
+      <li>Build & destroy blocks</li>
+      <li>Explore infinite worlds</li>
+      <li>Play with friends online</li>
+      <li>Pick from 100+ block types</li>
+      <li>Creative & survival modes</li>
+      <li>Zero cost — always free</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>📱 MOBILE</h3>
+    <ul>
+      <li>Works on Android Chrome</li>
+      <li>Touch controls included</li>
+      <li>Landscape mode recommended</li>
+      <li>Pinch to zoom support</li>
+    </ul>
+  </div>
+</div>
+
+<!-- Multiplayer -->
+<div class="mp-section">
+  <div class="mp-box">
+    <h2>👥 PLAY WITH FRIENDS</h2>
+    <ol class="steps">
+      <li><span>1</span> Click PLAY NOW above — game loads in your browser instantly</li>
+      <li><span>2</span> Click <b style="color:#4488ff">Multiplayer</b> in the game menu</li>
+      <li><span>3</span> Browse public servers OR create a free account on ClassiCube to host your own</li>
+      <li><span>4</span> Share the server IP with friends — they join via the same game on this page</li>
+      <li><span>5</span> Everyone plays together in real time, no download needed</li>
+    </ol>
+    <a class="server-link" href="https://www.classicube.net/server/list/" target="_blank" rel="noopener">
+      🌐 BROWSE PUBLIC SERVERS
+    </a>
+    &nbsp;
+    <a class="server-link" href="https://www.classicube.net/acc/register/" target="_blank" rel="noopener" style="background:#cc6600;box-shadow:0 3px 0 #884400;">
+      ⚙ HOST YOUR OWN SERVER
+    </a>
+  </div>
+</div>
+
+<footer>
+  Minecraft Classic gameplay powered by <a href="https://www.classicube.net" target="_blank" rel="noopener" style="color:#5a9e35">ClassiCube</a> — free & open source.<br>
+  This site is not affiliated with Mojang or Microsoft.<br>
+  "Minecraft" name belongs to Mojang Studios.
+</footer>
+
+<script>
+  function loadGame() {
+    document.getElementById('overlay').classList.add('hidden');
+    document.getElementById('game-iframe').src = 'https://www.classicube.net/client/web/';
+  }
+
+  // Auto-detect mobile
+  if (/Android|iPhone|iPad/i.test(navigator.userAgent)) {
+    document.querySelector('.play-note').textContent =
+      'Touch controls enabled ✓  Best in landscape mode';
+  }
+</script>
+
+</body>
+</html>
