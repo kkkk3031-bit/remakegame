@@ -577,7 +577,11 @@ function addChat(name,msg,color){
   const el=document.getElementById('chat-msgs');
   const d=document.createElement('div');
   d.className='cmsg';
-  d.innerHTML=`<span style="color:${color||'#aaa'}">${name}</span>: ${msg}`;
+  const nameSpan=document.createElement('span');
+  nameSpan.style.color=color||'#aaa';
+  nameSpan.textContent=name;
+  d.appendChild(nameSpan);
+  d.appendChild(document.createTextNode(name?': '+msg:msg));
   el.prepend(d);
   if(el.children.length>8) el.lastChild.remove();
 }

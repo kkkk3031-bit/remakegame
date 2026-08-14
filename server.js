@@ -16,6 +16,10 @@ const players      = {}; // socketId -> { id, name, color, x, y, z, ry }
 const COLORS       = ['#ff4444','#44aaff','#44ff88','#ffaa44','#ff44ff','#ffff44','#ff8844','#44ffff'];
 let colorIdx = 0;
 
+function sanitizeName(name) {
+  return String(name || 'Player').replace(/[<>]/g, '').replace(/[\x00-\x1f]/g, '').trim().slice(0, 16) || 'Player';
+}
+
 io.on('connection', socket => {
   const myColor = COLORS[colorIdx++ % COLORS.length];
 
@@ -23,26 +27,32 @@ io.on('connection', socket => {
   socket.emit('init', { blockChanges, players, color: myColor });
 
   socket.on('join', ({ name }) => {
-    players[socket.id] = { id: socket.id, name: name || 'Player', color: myColor,
+    players[socket.id] = { id: socket.id, name: sanitizeName(name), color: myColor,
                            x: 0, y: 10, z: 0, ry: 0 };
     socket.broadcast.emit('playerJoin', players[socket.id]);
   });
 
   socket.on('move', data => {
-    if (players[socket.id]) {
-      Object.assign(players[socket.id], data);
-      socket.broadcast.emit('playerMove', { id: socket.id, ...data });
+    const p = players[socket.id];
+    if (p && Number.isFinite(data?.x) && Number.isFinite(data?.y) && Number.isFinite(data?.z) && Number.isFinite(data?.ry)) {
+      p.x = data.x; p.y = data.y; p.z = data.z; p.ry = data.ry;
+      socket.broadcast.emit('playerMove', { id: socket.id, x: p.x, y: p.y, z: p.z, ry: p.ry });
     }
   });
 
   socket.on('blockChange', data => {
-    blockChanges[`${data.x},${data.y},${data.z}`] = data.type;
-    socket.broadcast.emit('blockChange', data);
+    const { x, y, z, type } = data || {};
+    const MAX_COORD = 100000;
+    if (![x, y, z, type].every(Number.isInteger) || Math.abs(x) > MAX_COORD || Math.abs(y) > MAX_COORD || Math.abs(z) > MAX_COORD) return;
+    blockChanges[`${x},${y},${z}`] = type;
+    socket.broadcast.emit('blockChange', { x, y, z, type });
   });
 
   socket.on('chat', ({ msg }) => {
     const name = players[socket.id]?.name || 'Player';
-    io.emit('chat', { name, msg, color: myColor });
+    const safeMsg = String(msg ?? '').slice(0, 200);
+    if (!safeMsg.trim()) return;
+    io.emit('chat', { name, msg: safeMsg, color: myColor });
   });
 
   socket.on('disconnect', () => {
